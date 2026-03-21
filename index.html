@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>MAINTLOG</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+:root {
+  --bg: #f4f6fb;
+  --surface: #ffffff;
+  --border: #e2e7f0;
+  --accent: #2563eb;
+  --accent-light: #dbeafe;
+  --text: #1e2336;
+  --muted: #8892aa;
+  --danger: #ef4444;
+  --ok: #16a34a;
+  --warn: #f59e0b;
+  --radius: 16px;
+  --shadow: 0 2px 12px rgba(37,99,235,0.07);
+  --shadow-md: 0 4px 24px rgba(37,99,235,0.12);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; justify-content: center; }
+.shell { width: 100%; max-width: 480px; min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); }
+
+/* ── Topbar ── */
+.topbar { padding: 16px 20px 12px; background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 50; display: flex; justify-content: space-between; align-items: flex-end; }
+.logo { font-family: 'Bebas Neue', sans-serif; font-size: 1.7rem; letter-spacing: 4px; color: var(--accent); line-height: 1; }
+.logo-sub { font-size: 0.58rem; color: var(--muted); letter-spacing: 1.5px; font-weight: 700; }
+
+/* ── Car rail ── */
+.car-rail { display: flex; gap: 8px; padding: 10px 14px; overflow-x: auto; scrollbar-width: none; background: var(--surface); border-bottom: 1px solid var(--border); }
+.car-rail::-webkit-scrollbar { display: none; }
+.car-pill { padding: 6px 16px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--bg); color: var(--muted); font-size: 0.8rem; font-weight: 700; white-space: nowrap; cursor: pointer; transition: all .2s; }
+.car-pill.active { background: var(--accent); border-color: var(--accent); color: white; box-shadow: 0 2px 10px rgba(37,99,235,0.25); }
+
+/* ── Pages ── */
+.page { display: none; padding: 14px 14px 100px; animation: fadeUp .25s ease; }
+.page.active { display: block; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+.section-label { font-size: 0.6rem; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin: 14px 2px 8px; font-weight: 700; }
+
+/* ── Cycle Dashboard ── */
+.current-mile-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); margin-bottom: 4px; }
+.current-mile-input { flex: 1; background: var(--bg); border: 1.5px solid var(--border); border-radius: 10px; color: var(--text); padding: 10px 12px; font-size: 1rem; font-family: "Noto Sans JP", sans-serif; outline: none; transition: border-color .2s; min-width: 0; }
+.current-mile-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+.current-mile-btn { padding: 10px 18px; background: var(--accent); color: white; border: none; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; font-family: "Noto Sans JP", sans-serif; white-space: nowrap; box-shadow: 0 2px 8px rgba(37,99,235,0.25); transition: opacity .15s; }
+.current-mile-btn:active { opacity: .8; }
+.cycle-item { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; box-shadow: var(--shadow); }
+.cycle-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.cycle-item-name { font-weight: 700; font-size: 0.92rem; }
+.cycle-status-badge { font-size: 0.68rem; font-weight: 700; padding: 4px 10px; border-radius: 20px; white-space: nowrap; }
+.cycle-progress-track { width: 100%; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
+.cycle-progress-fill { height: 100%; border-radius: 4px; transition: width .5s cubic-bezier(.4,0,.2,1); }
+.cycle-stats { display: flex; justify-content: space-between; font-size: 0.68rem; color: var(--muted); }
+.cycle-stats b { color: var(--text); }
+
+/* ── History ── */
+.filter-rail { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 4px 0 6px; }
+.filter-rail::-webkit-scrollbar { display: none; }
+.chip { padding: 5px 13px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--muted); font-size: 0.72rem; white-space: nowrap; cursor: pointer; font-weight: 700; transition: all .15s; }
+.chip.active { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+
+.hist-item { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: center; cursor: pointer; box-shadow: var(--shadow); transition: transform .1s; }
+.hist-item:active { transform: scale(.99); }
+.item-name { font-weight: 700; font-size: 0.9rem; }
+.item-meta { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+.cost-badge { background: var(--accent-light); color: var(--accent); border-radius: 8px; padding: 3px 8px; font-size: 0.7rem; font-weight: 700; }
+.mile-val { font-family: 'Bebas Neue', sans-serif; font-size: 1.15rem; text-align: right; }
+.mile-unit { font-size: 0.6rem; color: var(--muted); }
+.del-btn { background: none; border: none; color: var(--danger); font-size: 1rem; padding: 4px 6px; cursor: pointer; opacity: .35; transition: opacity .15s; flex-shrink: 0; }
+.del-btn:hover { opacity: 1; }
+
+/* ── Form ── */
+.form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-top: 4px; box-shadow: var(--shadow); }
+.form-card.editing { border-color: var(--accent); box-shadow: var(--shadow-md); }
+.form-row { display: flex; gap: 10px; margin-bottom: 12px; }
+.form-group { flex: 1; }
+.form-group label { font-size: 0.65rem; color: var(--muted); display: block; margin-bottom: 5px; letter-spacing: 1px; text-transform: uppercase; font-weight: 700; }
+.form-group input, .form-group select { width: 100%; background: var(--bg); border: 1.5px solid var(--border); border-radius: 10px; color: var(--text); padding: 10px 12px; font-size: 0.9rem; font-family: 'Noto Sans JP', sans-serif; outline: none; transition: border-color .2s, box-shadow .2s; }
+.form-group input:focus, .form-group select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+.btn-primary { width: 100%; padding: 14px; border: none; background: var(--accent); color: white; border-radius: 12px; font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 4px; font-family: 'Noto Sans JP', sans-serif; box-shadow: 0 3px 14px rgba(37,99,235,0.3); transition: opacity .15s; }
+.btn-primary:active { opacity: .85; }
+.btn-cancel { width: 100%; padding: 10px; border: 1.5px solid var(--border); background: none; color: var(--muted); border-radius: 12px; font-size: 0.85rem; cursor: pointer; margin-top: 6px; font-family: 'Noto Sans JP', sans-serif; display: none; }
+.edit-badge { display: none; background: var(--accent-light); color: var(--accent); font-size: 0.68rem; font-weight: 700; padding: 4px 10px; border-radius: 6px; margin-bottom: 12px; border: 1px solid var(--accent); }
+
+/* ── Charts ── */
+.chart-tab-rail { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 4px 0 10px; }
+.chart-tab-rail::-webkit-scrollbar { display: none; }
+.chart-tab-btn { padding: 6px 14px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--surface); color: var(--muted); font-size: 0.78rem; font-weight: 700; white-space: nowrap; cursor: pointer; transition: all .2s; font-family: "Noto Sans JP", sans-serif; }
+.chart-tab-btn.active { background: var(--accent); border-color: var(--accent); color: white; box-shadow: 0 2px 10px rgba(37,99,235,0.25); }
+.chart-panel { display: none; }
+.chart-panel.active { display: block; }
+.next-pred-card { display: flex; align-items: center; gap: 12px; padding: 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; }
+.chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; box-shadow: var(--shadow); overflow: hidden; }
+.chart-card h4 { font-size: 0.62rem; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px; font-weight: 700; }
+.chart-card .chart-desc { font-size: 0.68rem; color: var(--muted); margin-bottom: 14px; }
+.legend-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.legend-dot { display: flex; align-items: center; gap: 5px; font-size: 0.68rem; color: var(--text); font-weight: 700; }
+.legend-dot span { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+/* ── Settings ── */
+.settings-section { margin-bottom: 24px; }
+.settings-section h4 { font-size: 0.62rem; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); font-weight: 700; margin-bottom: 10px; }
+.setting-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; background: var(--surface); border: 1px solid var(--border); padding: 8px 10px; border-radius: 10px; box-shadow: var(--shadow); }
+.setting-row input { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 7px 10px; font-size: 0.85rem; font-family: 'Noto Sans JP', sans-serif; outline: none; }
+.setting-row input:focus { border-color: var(--accent); }
+.move-btns { display: flex; flex-direction: column; gap: 2px; }
+.move-btns button { background: var(--bg); border: 1px solid var(--border); color: var(--muted); border-radius: 4px; width: 22px; height: 18px; font-size: 0.55rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.icon-btn { background: none; border: none; color: var(--danger); font-size: 1rem; cursor: pointer; padding: 4px; opacity: .4; }
+.icon-btn:hover { opacity: 1; }
+.add-btn { width: 100%; padding: 11px; border: 1.5px dashed var(--border); background: none; color: var(--muted); border-radius: 10px; font-size: 0.8rem; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; font-weight: 700; transition: border-color .2s, color .2s; }
+.add-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Bottom nav (4 tabs) ── */
+.bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: rgba(255,255,255,0.96); backdrop-filter: blur(14px); border-top: 1px solid var(--border); display: flex; z-index: 100; box-shadow: 0 -4px 20px rgba(37,99,235,0.06); }
+.nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 0 14px; border: none; background: none; color: var(--muted); font-size: 0.58rem; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; font-weight: 700; transition: color .15s; }
+.nav-btn .nav-icon { font-size: 1.25rem; transition: transform .2s; }
+.nav-btn.active { color: var(--accent); }
+.nav-btn.active .nav-icon { transform: translateY(-2px); }
+
+/* ── Record FAB style ── */
+.nav-btn.record-btn { color: white; }
+.nav-btn.record-btn .nav-icon-wrap { background: var(--accent); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin-top: -20px; box-shadow: 0 4px 16px rgba(37,99,235,0.4); transition: transform .2s; }
+.nav-btn.record-btn:active .nav-icon-wrap { transform: scale(.93); }
+.nav-btn.record-btn span.nav-label { color: var(--accent); font-size: 0.58rem; font-weight: 700; }
+
+.empty { text-align: center; padding: 40px 20px; color: var(--muted); }
+.empty .big { font-family: 'Bebas Neue', sans-serif; font-size: 3rem; color: var(--border); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="topbar">
+    <div>
+      <div class="logo">MAINTLOG</div>
+      <div class="logo-sub">VEHICLE MAINTENANCE LOG</div>
+    </div>
+  </div>
+  <div class="car-rail" id="carRail"></div>
+
+  <!-- HISTORY -->
+  <div class="page active" id="page-history">
+    <div class="section-label">整備履歴</div>
+    <div class="filter-rail" id="filterRail"></div>
+    <div id="historyList"></div>
+  </div>
+
+  <!-- RECORD -->
+  <div class="page" id="page-record">
+    <div class="section-label">記録を追加</div>
+    <div class="form-card" id="formCard">
+      <div class="edit-badge" id="editBadge">✏️ 編集モード</div>
+      <div class="form-row">
+        <div class="form-group"><label>日付</label><input type="date" id="dateIn"></div>
+        <div class="form-group"><label>走行距離 km</label><input type="number" id="mileIn" placeholder="例: 45000"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>整備項目</label><select id="itemIn"></select></div>
+        <div class="form-group"><label>費用 ¥</label><input type="number" id="costIn" placeholder="0"></div>
+      </div>
+      <div class="form-group" style="margin-bottom:14px;"><label>メモ</label><input type="text" id="memoIn" placeholder="備考など"></div>
+      <button class="btn-primary" id="saveBtn" onclick="app.save()">💾 記録を保存</button>
+      <button class="btn-cancel" id="cancelBtn" onclick="app.cancelEdit()">キャンセル</button>
+    </div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="page" id="page-charts">
+    <div class="section-label">整備タイムライン</div>
+    <div class="chart-tab-rail" id="chartTabRail"></div>
+    <div id="chartPanels"></div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="page" id="page-settings">
+    <div class="section-label">設定</div>
+    <div class="settings-section">
+      <h4>車両</h4>
+      <div id="carSettings"></div>
+      <button class="add-btn" onclick="app.addCar()">＋ 車両を追加</button>
+    </div>
+    <div class="settings-section">
+      <h4>整備項目 &amp; サイクル</h4>
+      <div id="itemSettings"></div>
+      <button class="add-btn" onclick="app.addItem()">＋ 項目を追加</button>
+      <p style="font-size:0.65rem; color:var(--muted); margin-top:8px;">サイクル 0 km = 予測に非表示</p>
+    </div>
+    <div class="settings-section">
+      <h4>データ管理</h4>
+      <div style="display:flex; gap:8px;">
+        <button class="add-btn" onclick="app.exportJSON()" style="flex:1;">📤 エクスポート</button>
+        <label class="add-btn" style="flex:1; text-align:center; cursor:pointer;">📥 インポート<input type="file" accept=".json" style="display:none" onchange="app.importJSON(event)"></label>
+      </div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-page="history"  onclick="app.goPage('history')"> <span class="nav-icon">📋</span>履歴</button>
+    <button class="nav-btn record-btn" data-page="record" onclick="app.goPage('record')">
+      <div class="nav-icon-wrap">＋</div>
+      <span class="nav-label">記録</span>
+    </button>
+    <button class="nav-btn" data-page="charts"   onclick="app.goPage('charts')">  <span class="nav-icon">📊</span>グラフ</button>
+    <button class="nav-btn" data-page="settings" onclick="app.goPage('settings')"><span class="nav-icon">⚙️</span>設定</button>
+  </nav>
+</div>
+
+<script>
+const KEYS = { db:'maintlog_db_v5', cars:'maintlog_cars_v5', items:'maintlog_items_v5', miles:'maintlog_miles_v5' };
+const COLORS = ['#2563eb','#f59e0b','#16a34a','#ef4444','#8b5cf6','#06b6d4','#f97316'];
+
+function safeLoad(key, fallback) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+  catch(e) { return fallback; }
+}
+
+const chartInsts = {}; // keyed by item name
+
+const app = {
+  state: {
+    page: 'history',
+    car: '',
+    filter: 'すべて',
+    editId: null,
+
+    currentMiles: safeLoad(KEYS.miles, {}),
+    db:    safeLoad(KEYS.db, []),
+    cars:  safeLoad(KEYS.cars, ['ハイラックス','ステラ','原付']),
+    items: safeLoad(KEYS.items, [
+      {name:'オイル交換',    cycle:5000},
+      {name:'エレメント交換', cycle:10000},
+      {name:'タイヤ交換',    cycle:30000},
+      {name:'洗車',          cycle:0}
+    ])
+  },
+
+  async init() {
+    this.state.car = this.state.cars[0] || '';
+    document.getElementById('dateIn').valueAsDate = new Date();
+    this.render();
+    // 起動時にシートから自動読み込み
+    if (this.state.gasUrl) {
+      await this.syncFromSheet();
+    }
+  },
+
+
+
+  persist() {
+    localStorage.setItem(KEYS.db,    JSON.stringify(this.state.db));
+    localStorage.setItem(KEYS.cars,  JSON.stringify(this.state.cars));
+    localStorage.setItem(KEYS.items, JSON.stringify(this.state.items));
+    localStorage.setItem(KEYS.miles, JSON.stringify(this.state.currentMiles));
+
+  },
+
+  carData() {
+    return this.state.db
+      .filter(d => d.car === this.state.car)
+      .sort((a, b) => a.mile - b.mile);
+  },
+
+  goPage(name) {
+    this.state.page = name;
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + name).classList.add('active');
+    document.querySelectorAll('.nav-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.page === name));
+    if (name === 'charts') this.renderCharts();
+  },
+
+  setCar(name) {
+    this.state.car = name;
+    this.state.filter = 'すべて';
+    this.render();
+    if (this.state.page === 'charts') this.renderCharts();
+  },
+
+  // ── CRUD ────────────────────────────────────────
+  save() {
+    const mile = parseInt(document.getElementById('mileIn').value);
+    if (!mile) return alert('走行距離を入力してください');
+    const rec = {
+      id:   this.state.editId || Date.now(),
+      car:  this.state.car,
+      date: document.getElementById('dateIn').value,
+      mile,
+      cost: parseInt(document.getElementById('costIn').value) || 0,
+      item: document.getElementById('itemIn').value,
+      memo: document.getElementById('memoIn').value
+    };
+    if (this.state.editId) this.state.db = this.state.db.filter(d => d.id !== this.state.editId);
+    this.state.db.push(rec);
+    this.state.currentMiles[this.state.car] = rec.mile;
+    this.cancelEdit();
+    this.persist();
+    this.render();
+    this.goPage('history');
+    this.syncToSheet(rec); // async, non-blocking
+  },
+
+  edit(id) {
+    const t = this.state.db.find(d => d.id === id);
+    this.state.editId = id;
+    document.getElementById('dateIn').value  = t.date;
+    document.getElementById('mileIn').value  = t.mile;
+    document.getElementById('costIn').value  = t.cost;
+    document.getElementById('itemIn').value  = t.item;
+    document.getElementById('memoIn').value  = t.memo;
+    document.getElementById('formCard').classList.add('editing');
+    document.getElementById('editBadge').style.display = 'inline-block';
+    document.getElementById('saveBtn').textContent = '✏️ 変更を保存';
+    document.getElementById('cancelBtn').style.display = 'block';
+    this.goPage('record');
+  },
+
+  delete(id) {
+    const numId = Number(id);
+    this.state.db = this.state.db.filter(d => Number(d.id) !== numId);
+    this.persist();
+    this.render();
+    this.deleteFromSheet(numId); // async, non-blocking
+  },
+
+  cancelEdit() {
+    this.state.editId = null;
+    ['mileIn','memoIn','costIn'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('dateIn').valueAsDate = new Date();
+    document.getElementById('formCard').classList.remove('editing');
+    document.getElementById('editBadge').style.display = 'none';
+    document.getElementById('saveBtn').textContent = '💾 記録を保存';
+    document.getElementById('cancelBtn').style.display = 'none';
+  },
+
+  // ── Render ──────────────────────────────────────
+  render() {
+    this.renderCarRail();
+    this.renderItemSelect();
+    this.renderFilters();
+    this.renderHistory();
+    this.renderSettings();
+    this.persist();
+  },
+
+  renderCarRail() {
+    document.getElementById('carRail').innerHTML = this.state.cars.map(c =>
+      `<button class="car-pill ${this.state.car===c?'active':''}" onclick="app.setCar('${c.replace(/'/g,"\\'")}')">🚗 ${c}</button>`
+    ).join('');
+  },
+
+  renderItemSelect() {
+    document.getElementById('itemIn').innerHTML = this.state.items.map(it =>
+      `<option value="${it.name}">${it.name}</option>`
+    ).join('');
+  },
+
+  renderFilters() {
+    const data = this.carData();
+    const cats = ['すべて', ...new Set(data.map(d => d.item))];
+    document.getElementById('filterRail').innerHTML = cats.map(c =>
+      `<button class="chip ${this.state.filter===c?'active':''}" onclick="app.state.filter='${c}'; app.renderHistory()">${c}</button>`
+    ).join('');
+  },
+
+  renderHistory() {
+    const data = this.carData().slice().reverse();
+    const filtered = this.state.filter === 'すべて' ? data : data.filter(d => d.item === this.state.filter);
+    document.getElementById('historyList').innerHTML = filtered.length
+      ? filtered.map(d => `
+          <div style="display:flex; align-items:stretch; margin-bottom:8px; gap:6px;">
+            <div class="hist-item" style="flex:1; margin-bottom:0;" onclick="app.edit(${d.id})">
+              <div style="flex:1; min-width:0;">
+                <div class="item-name">${d.item}</div>
+                <div class="item-meta">${d.date}${d.memo?' · '+d.memo:''}</div>
+                ${d.cost?`<div style="margin-top:4px;"><span class="cost-badge">¥${d.cost.toLocaleString()}</span></div>`:''}
+              </div>
+              <div style="text-align:right; margin-left:10px; flex-shrink:0;">
+                <div class="mile-val">${d.mile.toLocaleString()}</div>
+                <div class="mile-unit">km</div>
+              </div>
+            </div>
+            <button onclick="app.delete(${d.id})" style="flex-shrink:0; width:36px; border:1px solid #fecaca; background:#fff5f5; border-radius:10px; color:var(--danger); font-size:1rem; cursor:pointer;">✕</button>
+          </div>`).join('')
+      : `<div class="empty"><div class="big">EMPTY</div><div style="font-size:0.82rem;">「記録」ボタンから追加しましょう</div></div>`;
+  },
+
+  renderCycleDashboard() {
+    const el = document.getElementById('cycleDashboard');
+    if (!el) return;
+    const currentMile = this.state.currentMiles[this.state.car] || null;
+
+    if (!currentMile) {
+      el.innerHTML = '<div style="color:var(--muted); font-size:0.82rem; padding:6px 2px;">記録を追加するとサイクルが自動計算されます</div>';
+      return;
+    }
+
+    const data = this.carData();
+    const items = this.state.items.filter(it => it.cycle > 0);
+    if (!items.length) {
+      el.innerHTML = '<div style="color:var(--muted); font-size:0.82rem; padding:6px 2px;">サイクル設定のある項目がありません</div>';
+      return;
+    }
+
+    // Avg days per item for date prediction
+    el.innerHTML = items.map((it, ci) => {
+      const color = COLORS[ci % COLORS.length];
+      const logs = data.filter(d => d.item === it.name).sort((a,b) => a.mile - b.mile);
+      const lastLog = logs.length ? logs[logs.length-1] : null;
+      const lastMile = lastLog ? lastLog.mile : null;
+
+      // Avg km interval from history
+      const gaps = [];
+      for (let i = 1; i < logs.length; i++) gaps.push(logs[i].mile - logs[i-1].mile);
+      const avgKm = gaps.length ? Math.round(gaps.reduce((s,v)=>s+v,0)/gaps.length) : it.cycle;
+
+      // Avg day interval
+      const dayGaps = [];
+      for (let i = 1; i < logs.length; i++)
+        dayGaps.push((new Date(logs[i].date)-new Date(logs[i-1].date))/86400000);
+      const avgDays = dayGaps.length ? Math.round(dayGaps.reduce((s,v)=>s+v,0)/dayGaps.length) : null;
+
+      const nextMile = lastMile !== null ? lastMile + avgKm : null;
+      const remaining = nextMile !== null ? nextMile - currentMile : null;
+      const pct = nextMile !== null ? Math.min(100, Math.max(0, ((currentMile - (lastMile||0)) / avgKm) * 100)) : 0;
+
+      // Status
+      let statusText, statusBg, statusColor, fillColor;
+      if (remaining === null) {
+        statusText = '未記録'; statusBg = '#f1f5f9'; statusColor = 'var(--muted)'; fillColor = '#cbd5e1';
+      } else if (remaining < 0) {
+        statusText = '⚠️ 超過'; statusBg = '#fee2e2'; statusColor = 'var(--danger)'; fillColor = 'var(--danger)';
+      } else if (remaining < avgKm * 0.15) {
+        statusText = '🔔 まもなく'; statusBg = '#fef3c7'; statusColor = 'var(--warn)'; fillColor = 'var(--warn)';
+      } else {
+        statusText = '✓ 正常'; statusBg = '#dcfce7'; statusColor = 'var(--ok)'; fillColor = color;
+      }
+
+      // Predict next date
+      let predDateStr = '';
+      if (lastLog && avgDays && remaining !== null) {
+        const kmPerDay = avgKm / avgDays;
+        const daysLeft = kmPerDay > 0 ? Math.round(remaining / kmPerDay) : null;
+        if (daysLeft !== null) {
+          const predDate = new Date(Date.now() + daysLeft * 86400000);
+          predDateStr = predDate.toISOString().slice(0,10);
+        }
+      }
+
+      const lastInfo = lastLog ? `前回: ${lastMile.toLocaleString()} km (${lastLog.date})` : '記録なし';
+      const nextInfo = nextMile ? `次回目安: ${nextMile.toLocaleString()} km` : '—';
+      const remText = remaining === null ? '—' : remaining >= 0 ? `あと ${remaining.toLocaleString()} km` : `${Math.abs(remaining).toLocaleString()} km 超過`;
+
+      return `<div class="cycle-item">
+        <div class="cycle-item-header">
+          <span class="cycle-item-name" style="color:${color}">${it.name}</span>
+          <span class="cycle-status-badge" style="background:${statusBg}; color:${statusColor};">${statusText}</span>
+        </div>
+        <div class="cycle-progress-track">
+          <div class="cycle-progress-fill" style="width:${pct}%; background:${fillColor};"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <span style="font-family:'Bebas Neue',sans-serif; font-size:1.6rem; color:${statusColor}; line-height:1;">${remText}</span>
+          ${predDateStr ? `<span style="font-size:0.72rem; font-weight:700; color:${statusColor};">予測: ${predDateStr}</span>` : ''}
+        </div>
+        <div class="cycle-stats">
+          <span>${lastInfo}</span>
+          <span><b>${nextInfo}</b></span>
+        </div>
+      </div>`;
+    }).join('');
+  },
+
+  // ── Charts ──────────────────────────────────────
+  renderCharts() {
+    const data = this.carData();
+    const maxMile = data.length ? Math.max(...data.map(d => d.mile)) : 0;
+    const today = new Date();
+
+    Object.values(chartInsts).forEach(c => c.destroy());
+    for (const k in chartInsts) delete chartInsts[k];
+
+    const items = this.state.items;
+    let tabsHTML = '', panelsHTML = '';
+
+    items.forEach((it, ci) => {
+      const isFirst = ci === 0;
+      tabsHTML += `<button class="chart-tab-btn${isFirst?' active':''}" onclick="app.switchChartTab(${ci})">${it.name}</button>`;
+      panelsHTML += `<div class="chart-panel${isFirst?' active':''}" id="panel_${ci}">
+        <div class="chart-card"><h4>${it.name} — 整備インターバル</h4><canvas id="chart_${ci}" height="240"></canvas></div>
+        <div class="chart-card" id="pred_${ci}"></div>
+      </div>`;
+    });
+
+    document.getElementById('chartTabRail').innerHTML = tabsHTML;
+    document.getElementById('chartPanels').innerHTML = panelsHTML;
+
+    items.forEach((it, ci) => {
+      const color = COLORS[ci % COLORS.length];
+      const colorFade = color + '33';
+      const logs = data.filter(d => d.item === it.name).sort((a,b) => new Date(a.date)-new Date(b.date));
+
+      // ── Compute intervals: each record minus previous record ──
+      const barPoints = logs.slice(1).map((l, i) => ({
+        date: l.date,
+        km: l.mile - logs[i].mile,
+        memo: l.memo,
+        mile: l.mile
+      }));
+
+      // Avg interval
+      const avgKm = barPoints.length ? Math.round(barPoints.reduce((s,p)=>s+p.km,0)/barPoints.length) : (it.cycle||null);
+
+      // Predict next date from avg day interval
+      const dayGaps = [];
+      for (let i = 1; i < logs.length; i++)
+        dayGaps.push((new Date(logs[i].date)-new Date(logs[i-1].date))/86400000);
+      const avgDays = dayGaps.length ? Math.round(dayGaps.reduce((s,v)=>s+v,0)/dayGaps.length) : null;
+      const lastLog = logs.length ? logs[logs.length-1] : null;
+      const predDate = lastLog && avgDays
+        ? new Date(new Date(lastLog.date).getTime() + avgDays*86400000)
+        : null;
+      // Next prediction = last record mile + target cycle
+      const predKm = it.cycle > 0 ? it.cycle : avgKm;
+      const predMile = lastLog && it.cycle > 0 ? lastLog.mile + it.cycle : null;
+
+      // ── Chart ──
+      const ctx = document.getElementById('chart_' + ci);
+      if (!ctx) return;
+
+      // Build unified label array: actual dates + predicted date
+      const allLabels = barPoints.map(p => p.date);
+      const predDateStr = predDate ? predDate.toISOString().slice(0,10) : null;
+      if (predDateStr) allLabels.push(predDateStr);
+
+      // bar colors per slot
+      const barData = allLabels.map(d => {
+        const bp = barPoints.find(p => p.date === d);
+        return bp ? bp.km : null;
+      });
+      const predData = allLabels.map(d => d === predDateStr ? predKm : null);
+      const cycleData = allLabels.map(() => it.cycle > 0 ? it.cycle : null);
+
+      const barBg = allLabels.map(d => {
+        const bp = barPoints.find(p => p.date === d);
+        if (!bp) return 'transparent';
+        if (!it.cycle) return color + 'cc';
+        return bp.km <= it.cycle ? '#16a34acc' : bp.km <= it.cycle*1.2 ? '#f59e0bcc' : '#ef4444cc';
+      });
+      const barBorder = barBg.map(c => c === 'transparent' ? 'transparent' : c.slice(0,7));
+
+      // memos for tooltip
+      const memoMap = {};
+      barPoints.forEach(p => { memoMap[p.date] = p.memo; });
+
+      // Only actual interval points (no prediction)
+      const actualData = allLabels.map(d => {
+        if (d === predDateStr) return null;
+        const bp = barPoints.find(p => p.date === d);
+        return bp ? bp.km : null;
+      });
+
+      const datasets = [
+        {
+          type: 'line',
+          label: 'インターバル',
+          data: actualData,
+          borderColor: color,
+          backgroundColor: color + '33',
+          pointRadius: 6,
+          pointHoverRadius: 8,
+          borderWidth: 2.5,
+          tension: 0.3,
+          fill: false,
+          spanGaps: false,
+        },
+      ];
+      if (it.cycle > 0) {
+        datasets.push({
+          type: 'line',
+          label: '目安サイクル',
+          data: allLabels.map(d => d === predDateStr ? null : it.cycle),
+          borderColor: '#94a3b8',
+          borderWidth: 2,
+          borderDash: [6, 4],
+          pointRadius: 0,
+          fill: false,
+          tension: 0,
+          spanGaps: false,
+        });
+      }
+
+      // Only use actual dates (drop predDateStr from labels)
+      const chartLabels = allLabels.filter(d => d !== predDateStr);
+      const chartDatasets = datasets.map(ds => ({
+        ...ds,
+        data: ds.data.filter((_, i) => allLabels[i] !== predDateStr)
+      }));
+
+      chartInsts['item_'+ci] = new Chart(ctx, {
+        type: 'line',
+        data: { labels: chartLabels, datasets: chartDatasets },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              display: true,
+              position: 'bottom',
+              labels: { color: '#8892aa', font: { size: 10 }, padding: 10, boxWidth: 12 }
+            },
+            tooltip: {
+              callbacks: {
+                title: items => items[0].label,
+                label: item => {
+                  const v = item.raw;
+                  if (v === null) return null;
+                  const parts = [`${item.dataset.label}: ${Number(v).toLocaleString()} km`];
+                  const memo = memoMap[item.label];
+                  if (memo) parts.push(memo);
+                  return parts;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#8892aa', font: { size: 10 }, maxRotation: 45 },
+              grid: { color: '#e2e7f0' },
+              title: { display: true, text: '整備日', color: '#8892aa', font: { size: 10 } }
+            },
+            y: {
+              min: 0,
+              ticks: { color: '#8892aa', font: { size: 10 }, callback: v => v.toLocaleString() + ' km' },
+              grid: { color: '#e2e7f0' },
+              title: { display: true, text: '前回からの走行距離 (km)', color: '#8892aa', font: { size: 10 } }
+            }
+          }
+        }
+      });
+
+      // ── Prediction card ──
+      const predEl = document.getElementById('pred_' + ci);
+      if (!lastLog) {
+        predEl.innerHTML = `<h4>次回整備の予測</h4><div style="color:var(--muted);font-size:0.82rem;padding:4px 0;">記録がありません</div>`;
+        return;
+      }
+      const kmLeft = predMile ? predMile - maxMile : null;
+      const daysLeft = predDate ? Math.round((predDate - today) / 86400000) : null;
+      const urgColor = (kmLeft!==null&&kmLeft<0)||(daysLeft!==null&&daysLeft<0) ? 'var(--danger)'
+        : (kmLeft!==null&&kmLeft<(predKm||9999)*0.1)||(daysLeft!==null&&daysLeft<14) ? 'var(--warn)' : color;
+
+      predEl.innerHTML = `
+        <h4>次回整備の予測</h4>
+        <div style="display:flex; gap:10px; margin-top:8px;">
+          <div style="flex:1; background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:14px; text-align:center;">
+            <div style="font-size:0.58rem; color:var(--muted); font-weight:700; letter-spacing:1px; margin-bottom:4px;">予測日</div>
+            <div style="font-family:'Bebas Neue',sans-serif; font-size:1.3rem; color:${urgColor}; line-height:1;">
+              ${predDate ? predDate.toISOString().slice(0,10) : '—'}
+            </div>
+            <div style="font-size:0.72rem; color:${urgColor}; font-weight:700; margin-top:5px;">
+              ${daysLeft===null?'—':daysLeft>=0?`あと ${daysLeft} 日`:`${Math.abs(daysLeft)} 日超過`}
+            </div>
+          </div>
+          <div style="flex:1; background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:14px; text-align:center;">
+            <div style="font-size:0.58rem; color:var(--muted); font-weight:700; letter-spacing:1px; margin-bottom:4px;">予測距離</div>
+            <div style="font-family:'Bebas Neue',sans-serif; font-size:1.3rem; color:${urgColor}; line-height:1;">
+              ${predMile ? predMile.toLocaleString() : '—'} km
+            </div>
+            <div style="font-size:0.72rem; color:${urgColor}; font-weight:700; margin-top:5px;">
+              ${kmLeft===null?'—':kmLeft>=0?`あと ${kmLeft.toLocaleString()} km`:`${Math.abs(kmLeft).toLocaleString()} km超過`}
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:8px; text-align:center; font-size:0.62rem; color:var(--muted);">
+          ${logs.length>=2?'実績平均ベース':'サイクル設定ベース'}の予測　／　平均インターバル: ${avgKm?avgKm.toLocaleString()+'km':'—'}
+        </div>`;
+    });
+  },
+
+  switchChartTab(idx) {
+    document.querySelectorAll('.chart-tab-btn').forEach((b,i) => b.classList.toggle('active', i===idx));
+    document.querySelectorAll('.chart-panel').forEach((p,i) => p.classList.toggle('active', i===idx));
+  },
+
+  // ── Settings ────────────────────────────────────
+  renderSettings() {
+
+    document.getElementById('carSettings').innerHTML = this.state.cars.map((c, i) => `
+      <div class="setting-row">
+        <div class="move-btns">
+          <button onclick="app.move('cars',${i},-1)">▲</button>
+          <button onclick="app.move('cars',${i}, 1)">▼</button>
+        </div>
+        <input type="text" style="flex:1" value="${c}" onchange="app.state.cars[${i}]=this.value; app.render()">
+        <button class="icon-btn" onclick="app.state.cars.splice(${i},1); app.state.car=app.state.cars[0]||''; app.render()">✕</button>
+      </div>`).join('');
+
+    document.getElementById('itemSettings').innerHTML = this.state.items.map((it, i) => `
+      <div class="setting-row">
+        <input type="text" style="flex:2" value="${it.name}" onchange="app.state.items[${i}].name=this.value; app.render()">
+        <input type="number" style="width:70px" value="${it.cycle}" onchange="app.state.items[${i}].cycle=parseInt(this.value)||0; app.render()">
+        <span style="font-size:0.6rem; color:var(--muted)">km</span>
+        <button class="icon-btn" onclick="app.state.items.splice(${i},1); app.render()">✕</button>
+      </div>`).join('');
+  },
+
+  addCar()  { this.state.cars.push('新規車両');  this.render(); },
+  addItem() { this.state.items.push({name:'新規項目', cycle:0}); this.render(); },
+
+  move(key, idx, dir) {
+    const arr = this.state[key];
+    const t = idx + dir;
+    if (t < 0 || t >= arr.length) return;
+    [arr[idx], arr[t]] = [arr[t], arr[idx]];
+    this.render();
+  },
+
+  GAS_URL: 'https://script.google.com/macros/s/AKfycbwEMfWTXRfEPqJgbhfrWoC7actMvi5bhqaPx3JwHlBCsMEBdm8gUeZUToJD2xYWfWp0/exec',
+
+  async gasGet(params) {
+    // GETリクエスト - GASはGETのみCORSフリー
+    const qs = new URLSearchParams(params);
+    const res = await fetch(`${this.GAS_URL}?${qs}`);
+    return await res.json();
+  },
+
+  async gasPost(params) {
+    // POSTはクエリパラメータでGETに乗せる（CORS完全回避）
+    const qs = new URLSearchParams(params);
+    const res = await fetch(`${this.GAS_URL}?${qs}`);
+    return await res.json();
+  },
+
+  async syncToSheet(record) {
+    try {
+      await this.gasGet({
+        action: 'save',
+        id:   record.id,
+        car:  record.car,
+        date: record.date,
+        mile: record.mile,
+        cost: record.cost,
+        item: record.item,
+        memo: record.memo || ''
+      });
+    } catch(e) { console.error('syncToSheet:', e); }
+  },
+
+  async deleteFromSheet(id) {
+    try {
+      await this.gasGet({ action: 'delete', id });
+    } catch(e) { console.error('deleteFromSheet:', e); }
+  },
+
+  async syncFromSheet() {
+    try {
+      const data = await this.gasGet({ action: 'loadAll' });
+      if (!data || !data.records) return;
+      this.state.db = data.records.map(r => ({
+        id: Number(r.id), car: r.car, date: r.date,
+        mile: Number(r.mile), cost: Number(r.cost), item: r.item, memo: r.memo || ''
+      }));
+      const sheetCars = [...new Set(this.state.db.map(r => r.car).filter(Boolean))];
+      sheetCars.forEach(c => { if (!this.state.cars.includes(c)) this.state.cars.push(c); });
+      if (this.state.cars.length && !this.state.cars.includes(this.state.car))
+        this.state.car = this.state.cars[0];
+      this.persist();
+      this.render();
+    } catch(e) { console.error('syncFromSheet:', e); }
+  },
+
+  exportJSON() {
+    const blob = new Blob([JSON.stringify({db:this.state.db, cars:this.state.cars, items:this.state.items}, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'maintlog_backup.json';
+    a.click();
+  },
+
+  importJSON(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const d = JSON.parse(ev.target.result);
+        if (d.db)    this.state.db    = d.db;
+        if (d.cars)  this.state.cars  = d.cars;
+        if (d.items) this.state.items = d.items;
+        this.state.car = this.state.cars[0] || '';
+        this.persist();
+        this.render();
+        alert('インポート完了！');
+      } catch { alert('JSONの読み込みに失敗しました'); }
+    };
+    reader.readAsText(file);
+  }
+};
+
+window.app = app;
+document.addEventListener('DOMContentLoaded', () => app.init());
+</script>
+</body>
+</html>
