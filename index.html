@@ -147,6 +147,7 @@ body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: va
 
   <!-- HISTORY -->
   <div class="page active" id="page-history">
+    <div id="syncDebug" style="font-size:0.75rem; color:var(--accent); padding:4px 2px; min-height:18px;"></div>
     <div class="section-label">整備履歴</div>
     <div class="filter-rail" id="filterRail"></div>
     <div id="historyList"></div>
@@ -246,9 +247,7 @@ const app = {
     document.getElementById('dateIn').valueAsDate = new Date();
     this.render();
     // 起動時にシートから自動読み込み
-    if (this.state.gasUrl) {
-      await this.syncFromSheet();
-    }
+    await this.syncFromSheet();
   },
 
 
@@ -724,9 +723,11 @@ const app = {
   GAS_URL: 'https://script.google.com/macros/s/AKfycbwEMfWTXRfEPqJgbhfrWoC7actMvi5bhqaPx3JwHlBCsMEBdm8gUeZUToJD2xYWfWp0/exec',
 
   async gasGet(params) {
-    // GETリクエスト - GASはGETのみCORSフリー
     const qs = new URLSearchParams(params);
-    const res = await fetch(`${this.GAS_URL}?${qs}`);
+    const res = await fetch(`${this.GAS_URL}?${qs}`, {
+      redirect: 'follow',
+      mode: 'cors',
+    });
     return await res.json();
   },
 
@@ -759,9 +760,14 @@ const app = {
   },
 
   async syncFromSheet() {
+    const debugEl = document.getElementById('syncDebug');
+    const show = msg => { if (debugEl) debugEl.textContent = msg; };
     try {
+      show('⏳ 接続中...');
       const data = await this.gasGet({ action: 'loadAll' });
-      if (!data || !data.records) return;
+      if (!data) { show('❌ レスポンスなし'); return; }
+      if (!data.records) { show('❌ recordsなし: ' + JSON.stringify(data)); return; }
+      show('✓ ' + data.records.length + '件取得');
       this.state.db = data.records.map(r => ({
         id: Number(r.id), car: r.car, date: r.date,
         mile: Number(r.mile), cost: Number(r.cost), item: r.item, memo: r.memo || ''
@@ -772,7 +778,11 @@ const app = {
         this.state.car = this.state.cars[0];
       this.persist();
       this.render();
-    } catch(e) { console.error('syncFromSheet:', e); }
+      setTimeout(() => show(''), 3000);
+    } catch(e) {
+      show('❌ エラー: ' + e.message);
+      console.error('syncFromSheet:', e);
+    }
   },
 
   exportJSON() {
