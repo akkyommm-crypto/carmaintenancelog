@@ -768,15 +768,19 @@ const app = {
       if (!data) { show('❌ レスポンスなし'); return; }
       if (!data.records) { show('❌ recordsなし: ' + JSON.stringify(data)); return; }
       show('✓ ' + data.records.length + '件取得');
+      // recordsのみ更新。cars/itemsはlocalStorageの設定を維持する
       this.state.db = data.records.map(r => ({
         id: Number(r.id), car: r.car, date: r.date,
         mile: Number(r.mile), cost: Number(r.cost), item: r.item, memo: r.memo || ''
       }));
+      // シートにある車両でlocalStorageにないものだけ追加
       const sheetCars = [...new Set(this.state.db.map(r => r.car).filter(Boolean))];
       sheetCars.forEach(c => { if (!this.state.cars.includes(c)) this.state.cars.push(c); });
-      if (this.state.cars.length && !this.state.cars.includes(this.state.car))
-        this.state.car = this.state.cars[0];
-      this.persist();
+      if (!this.state.car || !this.state.cars.includes(this.state.car))
+        this.state.car = this.state.cars[0] || '';
+      // dbのみ保存（cars/itemsは既にlocalStorageにある値を維持）
+      localStorage.setItem(KEYS.db, JSON.stringify(this.state.db));
+      localStorage.setItem(KEYS.cars, JSON.stringify(this.state.cars));
       this.render();
       setTimeout(() => show(''), 3000);
     } catch(e) {
